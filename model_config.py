@@ -14,6 +14,9 @@ if MODEL == "sonnet_vertex":
 elif MODEL == "gpt4o_openai":
     MODEL_NAME = "gpt-4o"
     TEMPERATURE = 0.4  # 0.3-0.5 for balanced, more for creativity
+    TOP_P = None
+    FREQUENCY_PENALTY = None
+    PRESENCE_PENALTY = None
     REQUIRED_ENV.append("OPENAI_API_KEY")
 elif MODEL == "deepseek":
     MODEL_NAME = "deepseek/deepseek-chat"
