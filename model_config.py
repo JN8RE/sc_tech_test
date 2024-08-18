@@ -2,7 +2,7 @@
 REQUIRED_ENV = ["TAVILY_API_KEY"]
 
 # Model selection and settings
-MODEL = "sonnet_vertex"
+MODEL = "gpt4o_openai"
 
 if MODEL == "sonnet_vertex":
     MODEL_NAME = "vertex_ai/claude-3-5-sonnet@20240620"
