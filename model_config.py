@@ -2,7 +2,7 @@
 REQUIRED_ENV = ["TAVILY_API_KEY"]
 
 # Model selection and settings
-MODEL = "gpt4o_openai"
+MODEL = "gpt-4o-mini_openai"
 
 if MODEL == "sonnet_vertex":
     MODEL_NAME = "vertex_ai/claude-3-5-sonnet@20240620"
@@ -11,8 +11,8 @@ if MODEL == "sonnet_vertex":
     FREQUENCY_PENALTY = None  # n/a on vertex
     PRESENCE_PENALTY = None  # n/a on vertex
     REQUIRED_ENV.extend(["GOOGLE_APPLICATION_CREDENTIALS", "VERTEXAI_PROJECT", "VERTEXAI_LOCATION"])
-elif MODEL == "gpt4o_openai":
-    MODEL_NAME = "gpt-4o"
+elif MODEL == "gpt-4o-mini_openai":
+    MODEL_NAME = "gpt-4o-mini"
     TEMPERATURE = 0.4  # 0.3-0.5 for balanced, more for creativity
     TOP_P = None
     FREQUENCY_PENALTY = None
