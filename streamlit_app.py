@@ -1,13 +1,16 @@
 import streamlit as st
-st.set_page_config(page_title="JN test - Company Analysis Workflow") # needs to stay here to avoid issues
+st.set_page_config(page_title="Company Research Workflow") # needs to stay here to avoid issues
 
 from typing import List, Callable
 import threading
 import time
 from streamlit.runtime.scriptrunner import add_script_run_ctx
-from workflow_steps import WORKFLOW_STEPS, SUMMARY_BEGINNING_OF_PROMPT, SUMMARY_END_OF_PROMPT
+from workflow_steps import WORKFLOW_STEPS, SUMMARY_BEGINNING_OF_PROMPT, SUMMARY_END_OF_PROMPT, DRAFT_EMAIL_PROMPT
 from env_config import setup_environment, setup_logging
 from utils import prompt_model, run_step, initialize_clients
+import base64
+from weasyprint import HTML
+from io import BytesIO
 
 # Setup environment and logging, initialize clients, setup cache for slow/expensive functions
 DEBUG_MODE = False # remember to set DEBUG_MODE = False before deploying
@@ -19,7 +22,9 @@ initialize_clients(mock_clients=False) # DEBUG; remember to disable before deplo
 from diskcache import Cache
 cache = Cache('/tmp/mycache')
 
-st.title("JN test - Company Analysis Workflow")
+st.title("Company Research Workflow")
+st.header("JN test")
+st.write("")
 
 # Initialize session state
 if 'company_url' not in st.session_state:
@@ -44,18 +49,29 @@ if 'is_summary_done' not in st.session_state:
     st.session_state.is_summary_done = False
 if 'summary_queued' not in st.session_state:
     st.session_state.summary_queued = False
+if 'is_draft_email_running' not in st.session_state:
+    st.session_state.is_draft_email_running = False
+if 'draft_email_start_time' not in st.session_state:
+    st.session_state.draft_email_start_time = None
+if 'is_draft_email_done' not in st.session_state:
+    st.session_state.is_draft_email_done = False
+if 'draft_email_queued' not in st.session_state:
+    st.session_state.draft_email_queued = False
+if 'draft_email_result' not in st.session_state:
+    st.session_state.draft_email_result = ""
 
 def get_is_any_process_running():
-    return any(st.session_state.is_step_running) or st.session_state.is_summary_running
+    return any(st.session_state.is_step_running) or st.session_state.is_summary_running or st.session_state.is_draft_email_running
 
 def get_is_analysis_running():
-    return get_is_any_process_running() or st.session_state.summary_queued
+    return get_is_any_process_running() or st.session_state.summary_queued or st.session_state.draft_email_queued
 
 def get_is_anything_marked_done():
-    return st.session_state.is_summary_done or any(st.session_state.is_step_done)
+    return st.session_state.is_summary_done or st.session_state.is_draft_email_done or any(st.session_state.is_step_done)
 
 def set_everthing_not_done():
     st.session_state.is_summary_done = False
+    st.session_state.is_draft_email_done = False
     st.session_state.is_step_done = [False] * len(WORKFLOW_STEPS)
 
 #@st.cache_data # bug in streamlit 1.37 causes cached functions to not be thread safe (https://github.com/streamlit/streamlit/issues/9260)
@@ -99,7 +115,7 @@ def run_summary_helper():
     if any(st.session_state.step_results):
         st.session_state.is_summary_running = True
         st.session_state.summary_start_time = time.time()
-        summary_prompt = SUMMARY_BEGINNING_OF_PROMPT + "\n\n".join(st.session_state.step_results) + SUMMARY_END_OF_PROMPT
+        summary_prompt = SUMMARY_BEGINNING_OF_PROMPT + "\n ***** \n" + "\n\n".join(st.session_state.step_results) + "\n ***** \n" + SUMMARY_END_OF_PROMPT
         def work_process():
             try:
                 result = cached_prompt_model(summary_prompt)
@@ -119,6 +135,30 @@ def run_summary_helper():
     else:
         st.error("No results to analyze.")
 
+def run_draft_email_helper():
+    if st.session_state.summary_result:
+        st.session_state.is_draft_email_running = True
+        st.session_state.draft_email_start_time = time.time()
+        draft_email_prompt = DRAFT_EMAIL_PROMPT + "\n ***** \n" + st.session_state.summary_result
+        def work_process():
+            try:
+                result = cached_prompt_model(draft_email_prompt)
+                st.session_state.draft_email_result = result
+            except Exception as e:
+                logging.error(f"Error in draft email step: {str(e)}")
+                st.session_state.draft_email_result = "Error occurred during draft email step."
+            finally:
+                st.session_state.is_draft_email_running = False
+                st.session_state.draft_email_start_time = None
+                st.session_state.is_draft_email_done = True
+                logging.info("Draft email work process completed")
+
+        thread = threading.Thread(target=work_process, daemon=True)
+        add_script_run_ctx(thread)
+        thread.start()
+    else:
+        st.error("No summary to draft email from.")
+
 ## Button to identify the model (only shown in debug mode)
 if DEBUG_MODE:
     col1, col2 = st.columns(2)
@@ -132,7 +172,12 @@ def display_analyze_company():
     # Check if summary is queued and no process is running
     if not get_is_any_process_running() and st.session_state.summary_queued:
         run_summary_helper()
-        st.session_state.summary_queued = False
+        st.session_state.draft_email_queued = True  # Queue draft email step after summary is completed 
+        st.session_state.summary_queued = False # Do after queuing in case of rerun race gone wrong
+    # Check if draft email is queued and no process is running
+    elif not get_is_any_process_running() and st.session_state.draft_email_queued:
+        run_draft_email_helper()
+        st.session_state.draft_email_queued = False
     # Input for company URL
     st.session_state.company_url = st.text_input("Enter company URL:", 
                                                  value=st.session_state.company_url, 
@@ -148,6 +193,9 @@ def display_analyze_company():
         elif st.session_state.is_summary_running:
             elapsed_time = int(time.time() - st.session_state.summary_start_time)
             button_text = f"Running Summary... {elapsed_time}s"
+        elif st.session_state.is_draft_email_running:
+            elapsed_time = int(time.time() - st.session_state.draft_email_start_time)
+            button_text = f"Drafting Email... {elapsed_time}s"
 
     if st.button(button_text, use_container_width=True, disabled=get_is_any_process_running()):
         if st.session_state.company_url: # keep this check even if redundant to avoid re-run
@@ -229,11 +277,122 @@ def display_summary():
                 error_message = "No results to analyze."
     
     if error_message: st.error(error_message) # used to print below column, not in column
-    st.text_area("Output:", value=st.session_state.summary_result, height=200, key="final_summary")
+    st.text_area("Output:", value=st.session_state.summary_result, height=400, key="final_summary")
 
 display_summary()
 
-# invisible fragment to trigger global rerun to reset all fragments' run_every once nothing is running anymore
+# Display draft email
+@st.fragment(run_every=1.0 if (st.session_state.is_draft_email_running or get_is_analysis_running()) else None)
+def display_draft_email():
+    error_message = None
+
+    st.write("") #create space
+    st.write("") #create space
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.subheader("Draft Email")
+    with col2:
+        button_text = "Draft Email"
+        if st.session_state.is_draft_email_running:
+            elapsed_time = int(time.time() - st.session_state.draft_email_start_time)
+            button_text = f"Drafting... {elapsed_time}s"
+        if st.button(
+            button_text,
+            disabled=st.session_state.is_draft_email_running,
+            use_container_width=True
+        ):
+            if st.session_state.summary_result: # keep this check even if redundant to avoid re-run
+                run_draft_email_helper()
+                st.rerun() #required to start run_every for fragment
+            else:
+                error_message = "No summary to draft email from."
+    
+    if error_message: st.error(error_message) # used to print below column, not in column
+    st.text_area("Output:", value=st.session_state.draft_email_result, height=400, key="draft_email")
+
+display_draft_email()
+
+def generate_pdf():
+    html_template = """
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                color: black;
+                font-size: 12px;
+            }}
+            h1, h2 {{
+                color: #00008B;  /* Dark Blue */
+            }}
+            h1 {{
+                font-size: 18px;
+                margin-bottom: 10px;
+            }}
+            h2 {{
+                font-size: 16px;
+                margin-bottom: 5px;
+            }}
+            .section {{
+                margin-bottom: 15px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Company Analysis Report</h1>
+        
+        <div class="section">
+            <h2>Draft Email</h2>
+            <p>{draft_email}</p>
+        </div>
+        
+        <div class="section">
+            <h2>Final Summary</h2>
+            <p>{summary}</p>
+        </div>
+        
+        {steps}
+    </body>
+    </html>
+    """
+    
+    steps_html = []
+    for i in range(len(WORKFLOW_STEPS)):
+        step_html = """
+        <div class="section">
+            <h2>Step {step_number}: {step_name}</h2>
+            <p>{step_result}</p>
+        </div>
+        """.format(
+            step_number=i+1,
+            step_name=WORKFLOW_STEPS[i]['step_name'],
+            step_result=st.session_state.step_results[i].replace('\n', '<br>')
+        )
+        steps_html.append(step_html)
+    
+    html_content = html_template.format(
+        draft_email=st.session_state.draft_email_result.replace('\n', '<br>'),
+        summary=st.session_state.summary_result.replace('\n', '<br>'),
+        steps=''.join(steps_html)
+    )
+    
+    pdf_file = BytesIO()
+    HTML(string=html_content).write_pdf(pdf_file)
+    pdf_file.seek(0)
+    return pdf_file
+
+# Download PDF button
+st.write("")
+if st.download_button(
+    label="Download as PDF",
+    data=generate_pdf(),
+    file_name="company_analysis.pdf",
+    mime="application/pdf",
+    use_container_width=True
+):
+    st.success("PDF generated successfully!")
+
+# invisible fragment to trigger global rerun to reset all fragments' run_every once nothing is running anymore; should always stay at end of file
 @st.fragment(run_every=1.0 if (get_is_any_process_running() or get_is_analysis_running()) else None)
 def invisible_fragment_to_rerun_when_all_done():
     #trigger rerun if any steps are marked done and nothing is running anymore
