@@ -7,7 +7,7 @@ WORKFLOW_STEPS = [
     },
     {
         "step_name": "Founder Information",
-        "search_query": "{company_url} founder OR {company_url} CEO biography leadership team",
+        "search_query": '"{company_url}" founder OR {company_url} CEO biography leadership team',
         "prompt_to_analyse": "Identify the founder(s) or CEO of the company {company_url} and summarize their professional background, key achievements, and vision for the company.",
         "include_domains": ["{company_url}", "linkedin.com", "crunchbase.com"]
     },
@@ -31,7 +31,7 @@ WORKFLOW_STEPS = [
     },
     {
         "step_name": "Recent Developments",
-        "search_query": "{company_url} recent news announcements partnerships product launches achievements",
+        "search_query": '"{company_url}" recent news announcements partnerships product launches achievements',
         "prompt_to_analyse": "Summarize the most significant recent news articles about the company {company_url}, focusing on major announcements, partnerships, product launches, or achievements from the past 3 months.",
         "include_domains": ["{company_url}", "techcrunch.com", "crunchbase.com", "businesswire.com", "prnewswire.com"]
     }
