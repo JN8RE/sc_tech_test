@@ -7,22 +7,22 @@ WORKFLOW_STEPS = [
     },
     {
         "step_name": "Founder Information",
-        "search_query": "{company_url} founder OR CEO biography leadership team",
+        "search_query": "{company_url} founder OR {company_url} CEO biography leadership team",
         "prompt_to_analyse": "Identify the founder(s) or CEO of the company and summarize their professional background, key achievements, and vision for the company.",
         "include_domains": ["{company_url}", "linkedin.com", "crunchbase.com"]
     },
-    {
-        "step_name": "Industry Analysis",
-        "search_query": "{company_url} industry market report size growth trends 2024",
-        "prompt_to_analyse": "Analyze the industry in which the company operates. Summarize key statistics, growth projections, market size, and emerging trends for 2024 and beyond.",
-        "include_domains": ["statista.com", "marketresearch.com", "ibisworld.com", "grandviewresearch.com"]
-    },
-    {
-        "step_name": "Competitor Analysis",
-        "search_query": "{company_url} top competitors comparison market share",
-        "prompt_to_analyse": "Identify the top 3-5 competitors of the company. For each competitor, summarize their key offerings and unique selling points. Then, compare and contrast with the target company, highlighting key differentiators and relative market positions.",
-        "include_domains": []
-    },
+#    {
+#        "step_name": "Industry Analysis",
+#        "search_query": "{company_url} industry market report size growth trends 2024",
+#        "prompt_to_analyse": "Analyze the industry in which the company operates. Summarize key statistics, growth projections, market size, and emerging trends for 2024 and beyond.",
+#        "include_domains": ["statista.com", "marketresearch.com", "ibisworld.com", "grandviewresearch.com"]
+#    },
+#    {
+#        "step_name": "Competitor Analysis",
+#        "search_query": "{company_url} top competitors comparison market share",
+#        "prompt_to_analyse": "Identify the top 3-5 competitors of the company. For each competitor, summarize their key offerings and unique selling points. Then, compare and contrast with the target company, highlighting key differentiators and relative market positions.",
+#        "include_domains": []
+#    },
     {
         "step_name": "Customer Sentiment",
         "search_query": "{company_url} customer reviews testimonials case studies",
