@@ -27,7 +27,7 @@ WORKFLOW_STEPS = [
         "step_name": "Customer Sentiment",
         "search_query": '"{company_url}"',
         "prompt_to_analyse": "Analyze customer reviews and testimonials for the company {company_url}. Summarize the overall sentiment and extract common themes from both positive and negative reviews. Include any notable case studies or success stories if available.",
-        "include_domains": ["g2.com", "capterra.com", "trustpilot.com"]
+        "include_domains": ["g2.com", "capterra.com"]#, "trustpilot.com"]
     },
     {
         "step_name": "Recent Developments",
