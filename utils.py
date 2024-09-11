@@ -149,5 +149,5 @@ def run_step(step: Dict[str, str], company_url: str) -> str:
     logging.info(f"Search Parameters: {search_params}")
     logging.info(f"Filtered Search Results: {search_results}")
     
-    prompt = f"{step['prompt_to_analyse']}\n Base this on the following search results:\n {search_results}"
+    prompt = f"{step['prompt_to_analyse']}\n Base this on the following search results and reference which URLs you used:\n {search_results}"
     return prompt_model(prompt)
